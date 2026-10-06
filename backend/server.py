@@ -1492,7 +1492,7 @@ async def list_profiles(
     bust_size: Optional[str] = None, penis_size: Optional[str] = None, max_date_price: Optional[int] = None,
     zodiac: Optional[str] = None, available_date: Optional[str] = None, video_calls: bool = False,
     premium_only: bool = False, vip_only: bool = False, with_photos: bool = False, verified_only: bool = False, online_now: bool = False,
-    vip_categories: Optional[str] = None, vip_min_price: Optional[int] = None, vip_max_price: Optional[int] = None, vip_date: Optional[str] = None,
+    vip_categories: Optional[str] = None, vip_services: Optional[str] = None, vip_min_price: Optional[int] = None, vip_max_price: Optional[int] = None, vip_date: Optional[str] = None,
     vip_eye_color: Optional[str] = None, vip_hair_color: Optional[str] = None, vip_intimate_haircut: Optional[str] = None, vip_breast_size: Optional[str] = None,
     vip_min_height: Optional[int] = None, vip_max_height: Optional[int] = None, vip_min_weight: Optional[int] = None, vip_max_weight: Optional[int] = None,
     vip_min_dick: Optional[int] = None, vip_max_dick: Optional[int] = None, vip_min_girth: Optional[int] = None, vip_max_girth: Optional[int] = None,
@@ -1511,7 +1511,7 @@ async def list_profiles(
                                                                    zodiac, available_date, video_calls,
                                                                    vip_categories, vip_min_price, vip_max_price, vip_date))
     if advanced_used and not has_premium(user): raise HTTPException(403, "PREMIUM_REQUIRED")
-    vip_adv = bool(vip_categories or (vip_min_price is not None) or (vip_max_price is not None) or vip_date
+    vip_adv = bool(vip_categories or vip_services or (vip_min_price is not None) or (vip_max_price is not None) or vip_date
                    or vip_eye_color or vip_hair_color or vip_intimate_haircut or vip_breast_size
                    or (vip_min_height is not None) or (vip_max_height is not None) or (vip_min_weight is not None) or (vip_max_weight is not None)
                    or (vip_min_dick is not None) or (vip_max_dick is not None) or (vip_min_girth is not None) or (vip_max_girth is not None)
@@ -1563,6 +1563,9 @@ async def list_profiles(
         cats = [c.strip() for c in vip_categories.split(",") if c.strip() in VIP_SERVICES]
         names = [s for c in cats for s in VIP_SERVICES[c]]
         if names: conds.append({"vip.services": {"$in": names}})
+    if vip_services:
+        chosen = [s.strip() for s in vip_services.split("||") if s.strip() in VIP_SERVICE_SET]
+        if chosen: conds.append({"vip.services": {"$in": chosen}})
     if vip_min_price is not None or vip_max_price is not None:
         checks = []
         if vip_min_price is not None: checks.append({"$gte": ["$$p.v", vip_min_price]})

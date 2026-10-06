@@ -16,7 +16,7 @@ import FeedBar from "../components/FeedBar";
 import { Search, SlidersHorizontal, ChevronDown, Crown, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { INTENTS, KIDS, HABITS, RELIGIONS, INCOMES, BUST, SIZES, GENDERS, ORIENTATIONS, optLabel } from "../components/ProfileDetailsForm";
-import { VIP_CATEGORIES, catTitle } from "../lib/vipCatalog";
+import { VIP_CATEGORIES, catTitle, svcLabel } from "../lib/vipCatalog";
 import { LANGUAGES, ZODIAC_EMOJI } from "../lib/i18n";
 import { Switch } from "../components/ui/switch";
 import CitySelect from "../components/CitySelect";
@@ -31,7 +31,7 @@ const VIP_HAIRCUTS = ["Fully shaved", "Trimmed", "Landing strip", "Bikini line",
 const VIP_BREAST_SIZES = ["AA", "A", "B", "C", "D", "DD", "E", "F", "G", "H+", "Natural", "Enhanced"];
 const EXTRA_DEFAULT = { intent: ALL, kids: ALL, smoking: ALL, drinking: ALL, religion: ALL, income: ALL, language: ALL, bust_size: ALL, penis_size: ALL, orientation: ALL, zodiac: ALL,
   min_height: "", max_height: "", min_weight: "", max_weight: "", hobby: "", job: "", max_date_price: "", available_date: "", video_calls: false, premium_only: false, vip_only: false, with_photos: false, verified_only: false, online_now: false,
-  vip_categories: [], vip_min_price: "", vip_max_price: "", vip_date: "",
+  vip_categories: [], vip_services: [], vip_min_price: "", vip_max_price: "", vip_date: "",
   vip_eye_color: ALL, vip_hair_color: ALL, vip_intimate_haircut: ALL, vip_breast_size: ALL,
   vip_min_height: "", vip_max_height: "", vip_min_weight: "", vip_max_weight: "",
   vip_min_dick: "", vip_max_dick: "", vip_min_girth: "", vip_max_girth: "",
@@ -91,6 +91,7 @@ export default function Browse() {
     try {
       const params = { ...filters };
       if (Array.isArray(params.vip_categories)) { if (params.vip_categories.length) params.vip_categories = params.vip_categories.join(","); else delete params.vip_categories; }
+      if (Array.isArray(params.vip_services)) { if (params.vip_services.length) params.vip_services = params.vip_services.join("||"); else delete params.vip_services; }
       if (Array.isArray(params.genders)) { if (params.genders.length) params.genders = params.genders.join(","); else delete params.genders; }
       Object.keys(params).forEach(k => (params[k] === ALL || params[k] === "" || params[k] == null || params[k] === false) && delete params[k]);
       const { data } = await api.get("/profiles", { params });
@@ -274,13 +275,32 @@ export default function Browse() {
             <DialogDescription className="text-slate-400">{t("vip_private_search_desc", lang)}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="text-xs font-semibold text-red-300/90">{t("vip_services", lang)}</div>
-            <div className="flex flex-wrap gap-2">
-              {VIP_CATEGORIES.map(c => (
-                <button key={c.key} data-testid={`vip-filter-cat-${c.key}`} type="button"
-                  onClick={() => setFilters(f => ({ ...f, vip_categories: f.vip_categories.includes(c.key) ? f.vip_categories.filter(x => x !== c.key) : [...f.vip_categories, c.key] }))}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filters.vip_categories.includes(c.key) ? "bg-red-500/20 border-red-500/50 text-red-200" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{catTitle(c.key, lang)}</button>
-              ))}
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-red-300/90">{t("vip_services", lang)}</div>
+              {filters.vip_services.length > 0 && (
+                <button type="button" data-testid="vip-services-clear" onClick={() => setFilters(f => ({ ...f, vip_services: [] }))} className="text-[11px] text-slate-400 hover:text-white">{t("reset", lang)} ({filters.vip_services.length})</button>
+              )}
+            </div>
+            <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-3">
+              {VIP_CATEGORIES.map(c => {
+                const allSel = c.items.every(s => filters.vip_services.includes(s));
+                return (
+                  <div key={c.key} data-testid={`vip-svc-group-${c.key}`}>
+                    <button type="button" data-testid={`vip-svc-selectall-${c.key}`}
+                      onClick={() => setFilters(f => ({ ...f, vip_services: allSel ? f.vip_services.filter(x => !c.items.includes(x)) : [...new Set([...f.vip_services, ...c.items])] }))}
+                      className="text-xs font-semibold text-red-300 mb-1.5 flex items-center gap-1.5 hover:text-red-200">
+                      <span className={`inline-block w-3 h-3 rounded-sm border ${allSel ? "bg-red-500 border-red-500" : "border-red-400/50"}`} /> {catTitle(c.key, lang)}
+                    </button>
+                    <div className="flex flex-wrap gap-1.5">
+                      {c.items.map(s => (
+                        <button key={s} type="button"
+                          onClick={() => setFilters(f => ({ ...f, vip_services: f.vip_services.includes(s) ? f.vip_services.filter(x => x !== s) : [...f.vip_services, s] }))}
+                          className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${filters.vip_services.includes(s) ? "bg-red-500/25 border-red-500/60 text-red-100" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{svcLabel(s, lang)}</button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div className="flex flex-wrap gap-3 items-end">
               <div className="min-w-[150px]"><label className="text-xs text-slate-400">{t("vip_availability", lang)}</label>
@@ -319,7 +339,7 @@ export default function Browse() {
           </div>
           <DialogFooter className="gap-2">
             <Button data-testid="vip-private-search-reset" variant="ghost" onClick={() => setFilters({ ...filters,
-              vip_categories: [], vip_min_price: "", vip_max_price: "", vip_date: "",
+              vip_categories: [], vip_services: [], vip_min_price: "", vip_max_price: "", vip_date: "",
               vip_eye_color: ALL, vip_hair_color: ALL, vip_intimate_haircut: ALL, vip_breast_size: ALL,
               vip_min_height: "", vip_max_height: "", vip_min_weight: "", vip_max_weight: "",
               vip_min_dick: "", vip_max_dick: "", vip_min_girth: "", vip_max_girth: "",
