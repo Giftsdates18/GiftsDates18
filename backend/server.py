@@ -1495,6 +1495,10 @@ async def list_profiles(
     vip_categories: Optional[str] = None, vip_min_price: Optional[int] = None, vip_max_price: Optional[int] = None, vip_date: Optional[str] = None,
     vip_eye_color: Optional[str] = None, vip_hair_color: Optional[str] = None, vip_intimate_haircut: Optional[str] = None, vip_breast_size: Optional[str] = None,
     vip_min_height: Optional[int] = None, vip_max_height: Optional[int] = None, vip_min_weight: Optional[int] = None, vip_max_weight: Optional[int] = None,
+    vip_min_dick: Optional[int] = None, vip_max_dick: Optional[int] = None, vip_min_girth: Optional[int] = None, vip_max_girth: Optional[int] = None,
+    vip_price1h_min: Optional[int] = None, vip_price1h_max: Optional[int] = None,
+    vip_price2h_min: Optional[int] = None, vip_price2h_max: Optional[int] = None,
+    vip_price3h_min: Optional[int] = None, vip_price3h_max: Optional[int] = None,
     max_distance: Optional[int] = None, sort: Optional[str] = None,
     origin_lat: Optional[float] = None, origin_lng: Optional[float] = None,
     online_nearby: bool = False,
@@ -1509,7 +1513,11 @@ async def list_profiles(
     if advanced_used and not has_premium(user): raise HTTPException(403, "PREMIUM_REQUIRED")
     vip_adv = bool(vip_categories or (vip_min_price is not None) or (vip_max_price is not None) or vip_date
                    or vip_eye_color or vip_hair_color or vip_intimate_haircut or vip_breast_size
-                   or (vip_min_height is not None) or (vip_max_height is not None) or (vip_min_weight is not None) or (vip_max_weight is not None))
+                   or (vip_min_height is not None) or (vip_max_height is not None) or (vip_min_weight is not None) or (vip_max_weight is not None)
+                   or (vip_min_dick is not None) or (vip_max_dick is not None) or (vip_min_girth is not None) or (vip_max_girth is not None)
+                   or (vip_price1h_min is not None) or (vip_price1h_max is not None)
+                   or (vip_price2h_min is not None) or (vip_price2h_max is not None)
+                   or (vip_price3h_min is not None) or (vip_price3h_max is not None))
     if vip_adv and not is_vip(user): raise HTTPException(403, "VIP_REQUIRED")
     vip_filter = bool(vip_only or vip_adv)
     if city and city.strip().lower() != "global":
@@ -1570,6 +1578,27 @@ async def list_profiles(
             if lo: r["$gte"] = lo
             if hi: r["$lte"] = hi
             conds.append({field: r})
+    # Per-duration price ranges (coins): 1h -> vip.prices.hour, 2h -> vip.prices.h2, 3h -> vip.prices.h3
+    for field, lo, hi in (("vip.prices.hour", vip_price1h_min, vip_price1h_max),
+                          ("vip.prices.h2", vip_price2h_min, vip_price2h_max),
+                          ("vip.prices.h3", vip_price3h_min, vip_price3h_max)):
+        if lo is not None or hi is not None:
+            r = {}
+            if lo is not None: r["$gte"] = lo
+            if hi is not None: r["$lte"] = hi
+            conds.append({field: r})
+    # Penis size & girth (cm) ranges — stored as free text, so extract the leading number for comparison.
+    def _num_range_cond(path, lo, hi):
+        val = {"$let": {"vars": {"m": {"$regexFind": {"input": {"$ifNull": [path, ""]}, "regex": "[0-9]+([.][0-9]+)?"}}},
+                        "in": {"$cond": [{"$eq": ["$$m", None]}, None, {"$toDouble": "$$m.match"}]}}}
+        checks = [{"$ne": [val, None]}]
+        if lo is not None: checks.append({"$gte": [val, lo]})
+        if hi is not None: checks.append({"$lte": [val, hi]})
+        return {"$expr": {"$and": checks}}
+    if vip_min_dick is not None or vip_max_dick is not None:
+        conds.append(_num_range_cond("$vip.dick_size", vip_min_dick, vip_max_dick))
+    if vip_min_girth is not None or vip_max_girth is not None:
+        conds.append(_num_range_cond("$vip.dick_girth", vip_min_girth, vip_max_girth))
     proj = {"_id": 0, "password": 0, "email": 0, "referred_by": 0, "referral_code": 0}
     _not_premium = [{"$or": [{"premium_until": None}, {"premium_until": {"$lte": now_iso}}, {"premium_until": {"$exists": False}}]}]
     _not_lite = [{"$or": [{"premium_lite_until": None}, {"premium_lite_until": {"$lte": now_iso}}, {"premium_lite_until": {"$exists": False}}]}]
