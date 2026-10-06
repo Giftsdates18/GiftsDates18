@@ -1,17 +1,9 @@
-// GiftsDates i18n — 8 languages
-export const LANGUAGES = [
-  { code: "ru", name: "Русский", flag: "🇷🇺", dir: "ltr" },
-  { code: "en", name: "English", flag: "🇺🇸", dir: "ltr" },
-  { code: "es", name: "Español", flag: "🇪🇸", dir: "ltr" },
-  { code: "fr", name: "Français", flag: "🇫🇷", dir: "ltr" },
-  { code: "de", name: "Deutsch", flag: "🇩🇪", dir: "ltr" },
-  { code: "pt", name: "Português", flag: "🇵🇹", dir: "ltr" },
-  { code: "zh", name: "中文", flag: "🇨🇳", dir: "ltr" },
-  { code: "hi", name: "हिन्दी", flag: "🇮🇳", dir: "ltr" },
-  { code: "bn", name: "বাংলা", flag: "🇧🇩", dir: "ltr" },
-  { code: "ur", name: "اردو", flag: "🇵🇰", dir: "rtl" },
-  { code: "ar", name: "العربية", flag: "🇸🇦", dir: "rtl" },
-];
+// GiftsDates i18n — worldwide language support
+import WORLD_LANGUAGES from "./languages.json";
+import GENERATED from "./locales";
+
+// Full worldwide list drives the app's language switcher.
+export const LANGUAGES = WORLD_LANGUAGES;
 
 // Comprehensive worldwide list for the "Languages spoken" profile field (ISO 639 codes).
 // Kept separate from LANGUAGES (which drives the translated app UI) so it can be exhaustive.
@@ -1083,6 +1075,12 @@ const T = {
 
 export function t(key, lang) {
   const entry = T[key];
-  if (!entry) return key;
-  return entry[lang] || entry.en || key;
+  // 1. Curated inline translation (highest quality — original 11 languages)
+  if (entry && entry[lang]) return entry[lang];
+  // 2. AI-generated worldwide locale file (loaded from ./locales)
+  const gen = GENERATED && GENERATED[lang];
+  if (gen && gen[key] != null && gen[key] !== "") return gen[key];
+  // 3. English fallback, then the raw key
+  if (entry) return entry.en || key;
+  return key;
 }
