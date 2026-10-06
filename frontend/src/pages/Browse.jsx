@@ -21,6 +21,7 @@ import { LANGUAGES, ZODIAC_EMOJI } from "../lib/i18n";
 import { Switch } from "../components/ui/switch";
 import CitySelect from "../components/CitySelect";
 import MultiSelect from "../components/MultiSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../components/ui/dialog";
 
 const ALL = "all";
 const RADII = [5, 10, 25, 50, 100, 250];
@@ -78,6 +79,7 @@ export default function Browse() {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ q: "", city: "", country: "", genders: [], min_age: 18, max_age: 60, max_distance: "", sort: "", online_nearby: false, ...EXTRA_DEFAULT });
   const [showMore, setShowMore] = useState(false);
+  const [vipOpen, setVipOpen] = useState(false);
   const [target, setTarget] = useState(null);
   const [modal, setModal] = useState(null);
   const [quota, setQuota] = useState(null);
@@ -179,8 +181,16 @@ export default function Browse() {
           </button>
           <Button data-testid="profile-search-submit-button" onClick={load} className="rose-btn text-white border-0"><SlidersHorizontal size={14} className="me-1"/> {t("filters", lang)}</Button>
           <label className="flex items-center gap-2 text-xs text-red-200 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 cursor-pointer h-[38px]" data-testid="main-vip-only-wrap">
-            <Switch data-testid="main-filter-vip-only" checked={filters.vip_only} onCheckedChange={v => setFilters({ ...filters, vip_only: v })} /> ♛ {t("vip_only", lang)}
+            <Switch data-testid="main-filter-vip-only" checked={filters.vip_only} onCheckedChange={v => {
+              setFilters({ ...filters, vip_only: v });
+              if (v) { if (isVip) setVipOpen(true); else { toast.error(t("vip_search_locked", lang)); nav("/wallet?vip=1"); } }
+            }} /> ♛ {t("vip_only", lang)}
           </label>
+          {isVip && filters.vip_only && (
+            <Button data-testid="vip-private-search-open" onClick={() => setVipOpen(true)} variant="outline" className="h-[38px] bg-red-500/10 border-red-500/40 text-red-200 hover:bg-red-500/20">
+              <Crown size={14} className="me-1 fill-red-500 text-red-500" /> {t("vip_private_search", lang)}
+            </Button>
+          )}
           <Button data-testid="profile-more-filters-toggle" onClick={() => setShowMore(!showMore)} variant="outline" className={`bg-white/5 border-white/10 hover:bg-white/10 ${!isPremium ? "text-amber-300 border-amber-500/30" : ""}`}><ChevronDown size={14} className={`me-1 transition-transform ${showMore ? "rotate-180" : ""}`}/>{!isPremium && <Crown size={14} className="me-1 text-amber-300"/>} {t("more_filters", lang)}</Button>
           {quota && !quota.premium && (
             <button data-testid="likes-quota-badge" onClick={() => nav("/wallet?premium=1")} className={`ms-auto px-3 py-2 rounded-full text-xs border font-mono-num ${quota.remaining === 0 ? "bg-rose-500/15 border-rose-500/40 text-rose-300" : "bg-white/5 border-white/10 text-slate-300"}`}>
@@ -227,54 +237,7 @@ export default function Browse() {
               {(filters.genders.length === 0 || filters.genders.some(g => g !== "male")) && <FilterSelect testid="filter-bust-select" field="bust_size" label={t("bust_size", lang)} value={filters.bust_size} options={BUST} onChange={v => setFilters({ ...filters, bust_size: v })} lang={lang} />}
               {(filters.genders.length === 0 || filters.genders.some(g => g !== "female")) && <FilterSelect testid="filter-penis-select" field="penis_size" label={t("penis_size", lang)} value={filters.penis_size} options={SIZES} onChange={v => setFilters({ ...filters, penis_size: v })} lang={lang} />}
             </div>
-            {isVip && (
-              <div className="rounded-xl border border-red-500/25 bg-red-500/5 p-3 space-y-3" data-testid="vip-filters-block">
-                <div className="text-xs font-semibold text-red-300 flex items-center gap-1"><Crown size={12} className="fill-red-500 text-red-500" /> {t("vip_only", lang)}</div>
-                <div className="flex flex-wrap gap-2">
-                  {VIP_CATEGORIES.map(c => (
-                    <button key={c.key} data-testid={`vip-filter-cat-${c.key}`} type="button"
-                      onClick={() => setFilters(f => ({ ...f, vip_categories: f.vip_categories.includes(c.key) ? f.vip_categories.filter(x => x !== c.key) : [...f.vip_categories, c.key] }))}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filters.vip_categories.includes(c.key) ? "bg-red-500/20 border-red-500/50 text-red-200" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{catTitle(c.key, lang)}</button>
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-3 items-end">
-                  <NumInput testid="vip-filter-min-price" label={`${t("vip_price_coins", lang)} · ${t("min", lang)}`} min="0" value={filters.vip_min_price} onChange={v => setFilters({ ...filters, vip_min_price: v })} />
-                  <NumInput testid="vip-filter-max-price" label={`${t("vip_price_coins", lang)} · ${t("max", lang)}`} min="0" value={filters.vip_max_price} onChange={v => setFilters({ ...filters, vip_max_price: v })} />
-                  <div className="min-w-[150px]"><label className="text-xs text-slate-400">{t("vip_availability", lang)}</label>
-                    <Input data-testid="vip-filter-date" type="date" value={filters.vip_date} onChange={e => setFilters({ ...filters, vip_date: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
-                </div>
-                <div className="text-xs font-semibold text-red-300/90 pt-1">{t("vip_price_by_duration", lang)}</div>
-                <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 items-end">
-                  <NumInput testid="vip-filter-price1h-min" label={`${t("vip_price_1h", lang)} · ${t("min", lang)}`} min="0" value={filters.vip_price1h_min} onChange={v => setFilters({ ...filters, vip_price1h_min: v })} />
-                  <NumInput testid="vip-filter-price1h-max" label={`${t("vip_price_1h", lang)} · ${t("max", lang)}`} min="0" value={filters.vip_price1h_max} onChange={v => setFilters({ ...filters, vip_price1h_max: v })} />
-                  <NumInput testid="vip-filter-price2h-min" label={`${t("vip_price_2h", lang)} · ${t("min", lang)}`} min="0" value={filters.vip_price2h_min} onChange={v => setFilters({ ...filters, vip_price2h_min: v })} />
-                  <NumInput testid="vip-filter-price2h-max" label={`${t("vip_price_2h", lang)} · ${t("max", lang)}`} min="0" value={filters.vip_price2h_max} onChange={v => setFilters({ ...filters, vip_price2h_max: v })} />
-                  <NumInput testid="vip-filter-price3h-min" label={`${t("vip_price_3h", lang)} · ${t("min", lang)}`} min="0" value={filters.vip_price3h_min} onChange={v => setFilters({ ...filters, vip_price3h_min: v })} />
-                  <NumInput testid="vip-filter-price3h-max" label={`${t("vip_price_3h", lang)} · ${t("max", lang)}`} min="0" value={filters.vip_price3h_max} onChange={v => setFilters({ ...filters, vip_price3h_max: v })} />
-                </div>
-                <div className="text-xs font-semibold text-red-300/90 pt-1">{t("vip_appearance", lang)}</div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <FilterSelect testid="vip-filter-hair" field="vip_hair_color" label={t("vip_hair_color", lang)} value={filters.vip_hair_color} options={VIP_HAIR_COLORS} labelFn={o => o} onChange={v => setFilters({ ...filters, vip_hair_color: v })} lang={lang} />
-                  <FilterSelect testid="vip-filter-eye" field="vip_eye_color" label={t("vip_eye_color", lang)} value={filters.vip_eye_color} options={VIP_EYE_COLORS} labelFn={o => o} onChange={v => setFilters({ ...filters, vip_eye_color: v })} lang={lang} />
-                  <FilterSelect testid="vip-filter-haircut" field="vip_intimate_haircut" label={t("vip_intimate_haircut", lang)} value={filters.vip_intimate_haircut} options={VIP_HAIRCUTS} labelFn={o => o} onChange={v => setFilters({ ...filters, vip_intimate_haircut: v })} lang={lang} />
-                  <FilterSelect testid="vip-filter-breast" field="vip_breast_size" label={t("vip_breast_size", lang)} value={filters.vip_breast_size} options={VIP_BREAST_SIZES} labelFn={o => o} onChange={v => setFilters({ ...filters, vip_breast_size: v })} lang={lang} />
-                </div>
-                <div className="flex flex-wrap gap-3 items-end">
-                  <NumInput testid="vip-filter-min-height" label={`${t("height", lang)} · ${t("min", lang)}`} min="100" max="250" value={filters.vip_min_height} onChange={v => setFilters({ ...filters, vip_min_height: v })} />
-                  <NumInput testid="vip-filter-max-height" label={`${t("height", lang)} · ${t("max", lang)}`} min="100" max="250" value={filters.vip_max_height} onChange={v => setFilters({ ...filters, vip_max_height: v })} />
-                  <NumInput testid="vip-filter-min-weight" label={`${t("weight", lang)} · ${t("min", lang)}`} min="30" max="400" value={filters.vip_min_weight} onChange={v => setFilters({ ...filters, vip_min_weight: v })} />
-                  <NumInput testid="vip-filter-max-weight" label={`${t("weight", lang)} · ${t("max", lang)}`} min="30" max="400" value={filters.vip_max_weight} onChange={v => setFilters({ ...filters, vip_max_weight: v })} />
-                </div>
-                {(filters.genders.length === 0 || filters.genders.some(g => g !== "female")) && (
-                  <div className="flex flex-wrap gap-3 items-end">
-                    <NumInput testid="vip-filter-min-dick" label={`${t("vip_dick_size", lang)} · ${t("min", lang)}`} min="0" max="40" value={filters.vip_min_dick} onChange={v => setFilters({ ...filters, vip_min_dick: v })} />
-                    <NumInput testid="vip-filter-max-dick" label={`${t("vip_dick_size", lang)} · ${t("max", lang)}`} min="0" max="40" value={filters.vip_max_dick} onChange={v => setFilters({ ...filters, vip_max_dick: v })} />
-                    <NumInput testid="vip-filter-min-girth" label={`${t("vip_dick_girth", lang)} · ${t("min", lang)}`} min="0" max="30" value={filters.vip_min_girth} onChange={v => setFilters({ ...filters, vip_min_girth: v })} />
-                    <NumInput testid="vip-filter-max-girth" label={`${t("vip_dick_girth", lang)} · ${t("max", lang)}`} min="0" max="30" value={filters.vip_max_girth} onChange={v => setFilters({ ...filters, vip_max_girth: v })} />
-                  </div>
-                )}
-              </div>
-            )}
+            {/* VIP private search is available as a popup — press the "VIP only" switch above */}
             <div className="flex flex-wrap gap-2 items-center">
               <Toggle testid="filter-premium-only" label={`👑 ${t("premium_only", lang)}`} checked={filters.premium_only} onChange={v => setFilters({ ...filters, premium_only: v })} />
               <Toggle testid="filter-online-now" label={`🟢 ${t("online_now", lang)}`} checked={filters.online_now} onChange={v => setFilters({ ...filters, online_now: v })} />
@@ -303,6 +266,69 @@ export default function Browse() {
       <GiftModal open={modal==="gift"} onOpenChange={(v)=>!v&&setModal(null)} target={target}/>
       <VideoCallModal open={modal==="video"} onOpenChange={(v)=>!v&&setModal(null)} target={target}/>
       <InviteDateModal open={modal==="date"} onOpenChange={(v)=>!v&&setModal(null)} target={target}/>
+
+      <Dialog open={vipOpen} onOpenChange={setVipOpen}>
+        <DialogContent data-testid="vip-private-search-dialog" className="bg-[#161320] border-red-500/30 text-white max-w-3xl max-h-[88vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-200"><Crown size={18} className="fill-red-500 text-red-500" /> {t("vip_private_search", lang)}</DialogTitle>
+            <DialogDescription className="text-slate-400">{t("vip_private_search_desc", lang)}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="text-xs font-semibold text-red-300/90">{t("vip_services", lang)}</div>
+            <div className="flex flex-wrap gap-2">
+              {VIP_CATEGORIES.map(c => (
+                <button key={c.key} data-testid={`vip-filter-cat-${c.key}`} type="button"
+                  onClick={() => setFilters(f => ({ ...f, vip_categories: f.vip_categories.includes(c.key) ? f.vip_categories.filter(x => x !== c.key) : [...f.vip_categories, c.key] }))}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filters.vip_categories.includes(c.key) ? "bg-red-500/20 border-red-500/50 text-red-200" : "bg-white/5 border-white/10 text-slate-300 hover:bg-white/10"}`}>{catTitle(c.key, lang)}</button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="min-w-[150px]"><label className="text-xs text-slate-400">{t("vip_availability", lang)}</label>
+                <Input data-testid="vip-filter-date" type="date" value={filters.vip_date} onChange={e => setFilters({ ...filters, vip_date: e.target.value })} className="bg-white/5 border-white/10 mt-1" /></div>
+            </div>
+            <div className="text-xs font-semibold text-red-300/90 pt-1">{t("vip_price_by_duration", lang)}</div>
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 items-end">
+              <NumInput testid="vip-filter-price1h-min" label={`${t("vip_price_1h", lang)} · ${t("min", lang)}`} min="0" value={filters.vip_price1h_min} onChange={v => setFilters({ ...filters, vip_price1h_min: v })} />
+              <NumInput testid="vip-filter-price1h-max" label={`${t("vip_price_1h", lang)} · ${t("max", lang)}`} min="0" value={filters.vip_price1h_max} onChange={v => setFilters({ ...filters, vip_price1h_max: v })} />
+              <NumInput testid="vip-filter-price2h-min" label={`${t("vip_price_2h", lang)} · ${t("min", lang)}`} min="0" value={filters.vip_price2h_min} onChange={v => setFilters({ ...filters, vip_price2h_min: v })} />
+              <NumInput testid="vip-filter-price2h-max" label={`${t("vip_price_2h", lang)} · ${t("max", lang)}`} min="0" value={filters.vip_price2h_max} onChange={v => setFilters({ ...filters, vip_price2h_max: v })} />
+              <NumInput testid="vip-filter-price3h-min" label={`${t("vip_price_3h", lang)} · ${t("min", lang)}`} min="0" value={filters.vip_price3h_min} onChange={v => setFilters({ ...filters, vip_price3h_min: v })} />
+              <NumInput testid="vip-filter-price3h-max" label={`${t("vip_price_3h", lang)} · ${t("max", lang)}`} min="0" value={filters.vip_price3h_max} onChange={v => setFilters({ ...filters, vip_price3h_max: v })} />
+            </div>
+            <div className="text-xs font-semibold text-red-300/90 pt-1">{t("vip_appearance", lang)}</div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <FilterSelect testid="vip-filter-hair" field="vip_hair_color" label={t("vip_hair_color", lang)} value={filters.vip_hair_color} options={VIP_HAIR_COLORS} labelFn={o => o} onChange={v => setFilters({ ...filters, vip_hair_color: v })} lang={lang} />
+              <FilterSelect testid="vip-filter-eye" field="vip_eye_color" label={t("vip_eye_color", lang)} value={filters.vip_eye_color} options={VIP_EYE_COLORS} labelFn={o => o} onChange={v => setFilters({ ...filters, vip_eye_color: v })} lang={lang} />
+              <FilterSelect testid="vip-filter-haircut" field="vip_intimate_haircut" label={t("vip_intimate_haircut", lang)} value={filters.vip_intimate_haircut} options={VIP_HAIRCUTS} labelFn={o => o} onChange={v => setFilters({ ...filters, vip_intimate_haircut: v })} lang={lang} />
+              <FilterSelect testid="vip-filter-breast" field="vip_breast_size" label={t("vip_breast_size", lang)} value={filters.vip_breast_size} options={VIP_BREAST_SIZES} labelFn={o => o} onChange={v => setFilters({ ...filters, vip_breast_size: v })} lang={lang} />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+              <NumInput testid="vip-filter-min-height" label={`${t("height", lang)} · ${t("min", lang)}`} min="100" max="250" value={filters.vip_min_height} onChange={v => setFilters({ ...filters, vip_min_height: v })} />
+              <NumInput testid="vip-filter-max-height" label={`${t("height", lang)} · ${t("max", lang)}`} min="100" max="250" value={filters.vip_max_height} onChange={v => setFilters({ ...filters, vip_max_height: v })} />
+              <NumInput testid="vip-filter-min-weight" label={`${t("weight", lang)} · ${t("min", lang)}`} min="30" max="400" value={filters.vip_min_weight} onChange={v => setFilters({ ...filters, vip_min_weight: v })} />
+              <NumInput testid="vip-filter-max-weight" label={`${t("weight", lang)} · ${t("max", lang)}`} min="30" max="400" value={filters.vip_max_weight} onChange={v => setFilters({ ...filters, vip_max_weight: v })} />
+            </div>
+            {(filters.genders.length === 0 || filters.genders.some(g => g !== "female")) && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
+                <NumInput testid="vip-filter-min-dick" label={`${t("vip_dick_size", lang)} · ${t("min", lang)}`} min="0" max="40" value={filters.vip_min_dick} onChange={v => setFilters({ ...filters, vip_min_dick: v })} />
+                <NumInput testid="vip-filter-max-dick" label={`${t("vip_dick_size", lang)} · ${t("max", lang)}`} min="0" max="40" value={filters.vip_max_dick} onChange={v => setFilters({ ...filters, vip_max_dick: v })} />
+                <NumInput testid="vip-filter-min-girth" label={`${t("vip_dick_girth", lang)} · ${t("min", lang)}`} min="0" max="30" value={filters.vip_min_girth} onChange={v => setFilters({ ...filters, vip_min_girth: v })} />
+                <NumInput testid="vip-filter-max-girth" label={`${t("vip_dick_girth", lang)} · ${t("max", lang)}`} min="0" max="30" value={filters.vip_max_girth} onChange={v => setFilters({ ...filters, vip_max_girth: v })} />
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button data-testid="vip-private-search-reset" variant="ghost" onClick={() => setFilters({ ...filters,
+              vip_categories: [], vip_min_price: "", vip_max_price: "", vip_date: "",
+              vip_eye_color: ALL, vip_hair_color: ALL, vip_intimate_haircut: ALL, vip_breast_size: ALL,
+              vip_min_height: "", vip_max_height: "", vip_min_weight: "", vip_max_weight: "",
+              vip_min_dick: "", vip_max_dick: "", vip_min_girth: "", vip_max_girth: "",
+              vip_price1h_min: "", vip_price1h_max: "", vip_price2h_min: "", vip_price2h_max: "", vip_price3h_min: "", vip_price3h_max: "" })}
+              className="text-slate-400 hover:text-white">{t("reset", lang)}</Button>
+            <Button data-testid="vip-private-search-apply" onClick={() => { setVipOpen(false); load(); }} className="rose-btn text-white border-0"><Search size={14} className="me-1" /> {t("apply_filters", lang)}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
